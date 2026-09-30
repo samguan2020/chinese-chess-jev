@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Xiangqi vs NanoJev</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #f4ecd8; display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  #controls { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+  #board { position: relative; background: #f0c987; border: 2px solid #6b4226; }
+  .cell { position: absolute; width: 56px; height: 56px; box-sizing: border-box; }
+  .gridline { position: absolute; background: #6b4226; }
+  .piece { position: absolute; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+           font-size: 26px; font-weight: bold; cursor: pointer; border: 2px solid #333; user-select: none; }
+  .piece.red { background: #fdf1e0; color: #b3261e; }
+  .piece.black { background: #fdf1e0; color: #1a1a1a; }
+  .square-target { position: absolute; width: 56px; height: 56px; box-sizing: border-box; border-radius: 50%; }
+  .highlight-select { outline: 3px solid #2f7d32; outline-offset: -3px; border-radius: 50%; }
+  .highlight-dest { background: rgba(47,125,50,0.35); border-radius: 50%; cursor: pointer; }
+  #status { margin-top: 12px; font-size: 15px; min-height: 22px; }
+  #log { margin-top: 8px; width: 520px; max-height: 160px; overflow-y: auto; font-size: 13px; background: #fffaf0; border: 1px solid #ccc; padding: 6px 10px; }
+  button, select { font-size: 14px; padding: 4px 10px; }
+</style>
+</head>
+<body>
+<h1>Xiangqi vs NanoJev (click a piece, then click a destination)</h1>
+<div id="controls">
+  <label>Play as:
+    <select id="humanSide">
+      <option value="red">Red (moves first)</option>
+      <option value="black">Black (moves second)</option>
+    </select>
+  </label>
+  <button id="newGame">New game</button>
+</div>
+<div id="board"></div>
+<div id="status"></div>
+<div id="log"></div>
+<script>
+const CELL = 56, COLS = 9, ROWS = 10;
+const boardEl = document.getElementById('board');
+boardEl.style.width = (CELL * (COLS - 1) + CELL) + 'px';
+boardEl.style.height = (CELL * (ROWS - 1) + CELL) + 'px';
+
+let state = null;
+let selected = null;
+let destinations = [];
+
+function toScreen(row, col) {
+  // Server row 0 is Red's back rank; display it at the bottom.
+  const y = (9 - row) * CELL;
+  const x = col * CELL;
+  return { x, y };
+}
+
+function drawGrid() {
+  boardEl.querySelectorAll('.gridline').forEach(e => e.remove());
+  for (let c = 0; c < COLS; c++) {
+    const line = document.createElement('div');
+    line.className = 'gridline';
+    line.style.left = (c * CELL + CELL / 2 - 1) + 'px';
+    line.style.top = (CELL / 2) + 'px';
+    line.style.width = '2px';
+    line.style.height = ((ROWS - 1) * CELL) + 'px';
+    boardEl.appendChild(line);
+  }
+  for (let r = 0; r < ROWS; r++) {
+    const line = document.createElement('div');
+    line.className = 'gridline';
+    line.style.top = (r * CELL + CELL / 2 - 1) + 'px';
+    line.style.left = (CELL / 2) + 'px';
+    line.style.height = '2px';
+    line.style.width = ((COLS - 1) * CELL) + 'px';
+    boardEl.appendChild(line);
+  }
+}
+
+// Pieces keep their traditional Chinese characters on the board, as is standard even in
+// English-language Xiangqi resources; everything else in this UI is in English.
+const PIECE_LABEL = {
+  red: { G: '帅', A: '仕', E: '相', H: '马', R: '车', C: '炮', S: '兵' },
+  black: { G: '将', A: '士', E: '象', H: '马', R: '车', C: '炮', S: '卒' },
+};
+
+function render() {
+  boardEl.querySelectorAll('.piece, .square-target').forEach(e => e.remove());
+  drawGrid();
+  for (const p of state.board) {
+    const { x, y } = toScreen(p.row, p.col);
+    const el = document.createElement('div');
+    el.className = 'piece ' + p.side + (selected && selected.row === p.row && selected.col === p.col ? ' highlight-select' : '');
+    el.style.left = (x + (CELL - 48) / 2) + 'px';
+    el.style.top = (y + (CELL - 48) / 2) + 'px';
+    el.textContent = PIECE_LABEL[p.side][p.piece];
+    el.dataset.row = p.row; el.dataset.col = p.col;
+    el.addEventListener('click', () => onCellClick(p.row, p.col));
+    boardEl.appendChild(el);
+  }
+  for (const d of destinations) {
+    const { x, y } = toScreen(d.row, d.col);
+    const el = document.createElement('div');
+    el.className = 'square-target highlight-dest';
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.addEventListener('click', () => onCellClick(d.row, d.col));
+    boardEl.appendChild(el);
+  }
+  const statusEl = document.getElementById('status');
+  const turnText = state.side_to_move === 'red' ? 'Red' : 'Black';
+  const youAre = state.human_side === 'red' ? 'You are Red' : 'You are Black';
+  if (state.status === 'ongoing') {
+    statusEl.textContent = `${youAre}. ${turnText} to move.`;
+  } else {
+    const winnerText = state.winner === 'red' ? 'Red' : 'Black';
+    const kind = state.status === 'checkmate' ? 'checkmate' : 'stalemate (no legal moves)';
+    statusEl.textContent = `Game over: ${winnerText} wins by ${kind}.`;
+  }
+}
+
+function appendLog(text) {
+  const logEl = document.getElementById('log');
+  const line = document.createElement('div');
+  line.textContent = text;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function api(path, body) {
+  const opts = body === undefined ? { method: 'GET' } :
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+  const resp = await fetch(path, opts);
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || 'request failed');
+  return data;
+}
+
+function applyResult(data) {
+  state = data;
+  destinations = [];
+  selected = null;
+  if (data.move_log && data.move_log.length) {
+    const last = data.move_log[data.move_log.length - 1];
+    appendLog(`${last.side === 'red' ? 'Red' : 'Black'}: ${last.description_en || last.description}` +
+      (last.source && last.source !== 'human' ? ` (${last.source}${last.probability != null ? ', p=' + last.probability.toFixed(3) : ''})` : ''));
+  }
+  render();
+}
+
+async function triggerAiMove() {
+  document.getElementById('status').textContent = 'AI is thinking... (can take up to a minute when there are many candidate moves)';
+  render();
+  try {
+    const data = await api('/api/ai-move', {});
+    applyResult(data);
+  } catch (e) {
+    appendLog('AI move failed: ' + e.message);
+    render();
+  }
+}
+
+async function onCellClick(row, col) {
+  if (!state || state.status !== 'ongoing' || state.side_to_move !== state.human_side) return;
+  const isDest = destinations.some(d => d.row === row && d.col === col);
+  if (selected && isDest) {
+    try {
+      const data = await api('/api/move', { from: selected, to: { row, col } });
+      applyResult(data);  // shows the human move immediately
+      if (data.status === 'ongoing' && data.side_to_move !== data.human_side) {
+        await triggerAiMove();
+      }
+    } catch (e) {
+      appendLog('Move failed: ' + e.message);
+      selected = null; destinations = []; render();
+    }
+    return;
+  }
+  const piece = state.board.find(p => p.row === row && p.col === col);
+  if (piece && piece.side === state.human_side) {
+    selected = { row, col };
+    const data = await api('/api/legal-destinations', { row, col });
+    destinations = data.destinations;
+    render();
+  } else {
+    selected = null; destinations = []; render();
+  }
+}
+
+document.getElementById('newGame').addEventListener('click', async () => {
+  document.getElementById('log').innerHTML = '';
+  const humanSide = document.getElementById('humanSide').value;
+  const data = await api('/api/new', { human_side: humanSide });
+  applyResult(data);
+  if (data.status === 'ongoing' && data.side_to_move !== data.human_side) {
+    await triggerAiMove();
+  }
+});
+
+(async () => {
+  const data = await api('/api/state');
+  applyResult(data);
+  if (data.status === 'ongoing' && data.side_to_move !== data.human_side) {
+    await triggerAiMove();
+  }
+})();
+</script>
+</body>
+</html>

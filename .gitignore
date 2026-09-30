@@ -1,0 +1,20 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+
+# Third-party binaries, generated data, and trained weights — see docs/TRAINING.md
+engines/
+data/
+runs/
+checkpoints/
+*.safetensors
+*.pt
+*.pth
+
+# Standard Python/OS noise
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.vscode/

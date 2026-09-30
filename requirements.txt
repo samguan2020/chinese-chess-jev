@@ -1,0 +1,8 @@
+# A CUDA-enabled torch build is required (see docs/TRAINING.md for a 4GB-GPU setup).
+# These are the versions this project was actually developed and tested against;
+# newer versions of each will very likely also work.
+torch>=2.6.0
+transformers>=5.0.0
+safetensors>=0.7.0
+numpy>=2.0.0
+huggingface_hub

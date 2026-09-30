@@ -1,0 +1,160 @@
+{
+  "best_step": 370,
+  "best_dev_target_ce": 2.354933306840182,
+  "selected_on": "dev target CE",
+  "objective": "gold_distribution",
+  "metrics_by_split": {
+    "dev": {
+      "questions": 10,
+      "objective": "gold_distribution",
+      "eligible_questions": 10,
+      "target_ce": 2.354933306840182,
+      "target_kl": 2.354933306840182,
+      "target_tv": 0.8810308655873674,
+      "by_target_kind": {
+        "hard_gold_one_hot": {
+          "n": 10,
+          "ce": 2.354933306840182,
+          "kl": 2.354933306840182,
+          "tv": 0.8810308655873674
+        }
+      },
+      "independent_targets": {
+        "teacher": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        },
+        "gold_distribution": {
+          "n": 10,
+          "ce": 2.354933306840182,
+          "kl": 2.354933306840182,
+          "tv": 0.8810308655873674
+        },
+        "observed_outcome": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        }
+      },
+      "note": "question-mean distribution recovery; policy targets and reference argmax labels are not observed outcomes"
+    },
+    "calibration": {
+      "questions": 10,
+      "objective": "gold_distribution",
+      "eligible_questions": 10,
+      "target_ce": 2.4458643288739084,
+      "target_kl": 2.4458643288739084,
+      "target_tv": 0.8772312893055416,
+      "by_target_kind": {
+        "hard_gold_one_hot": {
+          "n": 10,
+          "ce": 2.4458643288739084,
+          "kl": 2.4458643288739084,
+          "tv": 0.8772312893055416
+        }
+      },
+      "independent_targets": {
+        "teacher": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        },
+        "gold_distribution": {
+          "n": 10,
+          "ce": 2.4458643288739084,
+          "kl": 2.4458643288739084,
+          "tv": 0.8772312893055416
+        },
+        "observed_outcome": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        }
+      },
+      "note": "question-mean distribution recovery; policy targets and reference argmax labels are not observed outcomes"
+    },
+    "test": {
+      "questions": 15,
+      "objective": "gold_distribution",
+      "eligible_questions": 15,
+      "target_ce": 1.8652835583377145,
+      "target_kl": 1.8652835583377145,
+      "target_tv": 0.8010907619222581,
+      "by_target_kind": {
+        "hard_gold_one_hot": {
+          "n": 15,
+          "ce": 1.8652835583377145,
+          "kl": 1.8652835583377145,
+          "tv": 0.8010907619222581
+        }
+      },
+      "independent_targets": {
+        "teacher": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        },
+        "gold_distribution": {
+          "n": 15,
+          "ce": 1.8652835583377145,
+          "kl": 1.8652835583377145,
+          "tv": 0.8010907619222581
+        },
+        "observed_outcome": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        }
+      },
+      "note": "question-mean distribution recovery; policy targets and reference argmax labels are not observed outcomes"
+    },
+    "ood": {
+      "questions": 15,
+      "objective": "gold_distribution",
+      "eligible_questions": 15,
+      "target_ce": 1.9973393663530894,
+      "target_kl": 1.9973393663530894,
+      "target_tv": 0.8281312950718728,
+      "by_target_kind": {
+        "hard_gold_one_hot": {
+          "n": 15,
+          "ce": 1.9973393663530894,
+          "kl": 1.9973393663530894,
+          "tv": 0.8281312950718728
+        }
+      },
+      "independent_targets": {
+        "teacher": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        },
+        "gold_distribution": {
+          "n": 15,
+          "ce": 1.9973393663530894,
+          "kl": 1.9973393663530894,
+          "tv": 0.8281312950718728
+        },
+        "observed_outcome": {
+          "n": 0,
+          "ce": 0.0,
+          "kl": 0.0,
+          "tv": 0.0
+        }
+      },
+      "note": "question-mean distribution recovery; policy targets and reference argmax labels are not observed outcomes"
+    }
+  },
+  "temperature": 1.0,
+  "temperature_fitted": false,
+  "training_seconds": 6144.073212599993,
+  "max_gpu_allocated_gb": 2.766304768
+}
