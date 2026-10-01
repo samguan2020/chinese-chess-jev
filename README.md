@@ -6,6 +6,12 @@ Chinese Chess Jev is a human-vs-AI Xiangqi app built on top of [NanoJev](https:/
 
 The honest answer is "somewhat, and here's exactly what it took." This repo is both the game and the paper trail: real training logs, real GPU-memory war stories, and three separate rounds of "the model looks confused, here's the actual bug."
 
+## Showcase
+
+Read the case study: **[samguan2020.github.io/chinese-chess-jev](https://samguan2020.github.io/chinese-chess-jev/)**
+
+The page source is [`docs/index.html`](docs/index.html), served by GitHub Pages.
+
 ## Play it
 
 ```bash

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Chinese Chess Jev: teaching a 0.6B System-1 decision model to play Xiangqi, and what it actually took on a 4GB GPU.">
+<title>Chinese Chess Jev Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&family=Noto+Serif+SC:wght@700;900&display=swap">
+<style>
+:root{
+  --bg:#eef0f5; --surface:#ffffff; --surface-2:#e3e6ef; --ink:#151a2c; --muted:#565d78; --line:#cfd4e2;
+  --gold:#a8790c; --blue:#2c58c9; --red:#b8322f; --green:#2f8a4e; --purple:#7c3aed;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --han:"Noto Serif SC", "Songti SC", "SimSun", serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1220; --surface:#171b2c; --surface-2:#1f2438; --ink:#e8eaf3; --muted:#9aa1bb; --line:#2c3250;
+    --gold:#e3b544; --blue:#7c9df5; --red:#ec7270; --green:#63c083; --purple:#b79bf7;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1220; --surface:#171b2c; --surface-2:#1f2438; --ink:#e8eaf3; --muted:#9aa1bb; --line:#2c3250;
+  --gold:#e3b544; --blue:#7c9df5; --red:#ec7270; --green:#63c083; --purple:#b79bf7;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;margin:0}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:40px 72px}
+a{color:var(--blue);text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:2px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h2{font-size:clamp(26px,3.4vw,34px);font-weight:800;letter-spacing:-.01em}
+h3{font-size:19px;font-weight:700}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+code{background:var(--surface-2);padding:1px 6px;border-radius:4px}
+
+.hero{padding-bottom:40px;border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(36px,6vw,58px);font-weight:800;letter-spacing:-.02em;margin-top:14px}
+.hero h1 .han{font-family:var(--han);font-weight:900;color:var(--gold);display:block;font-size:.5em;letter-spacing:.08em;margin-bottom:6px}
+.thesis{font-size:21px;line-height:1.5;margin-top:20px;max-width:64ch}
+.thesis strong{color:var(--blue)}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;padding:10px 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+:root:not([data-theme="light"]) .btn.primary{color:#fff}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:40px;border-bottom:1px solid var(--line);padding-bottom:0}
+.stat{padding:24px 18px 24px 0;display:flex;flex-direction:column;gap:4px}
+.stat + .stat{padding-left:18px;border-left:1px solid var(--line)}
+.stat b{font-family:var(--display);font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.stat span{font-size:14px;color:var(--muted);line-height:1.35}
+
+section{padding-top:64px}
+.lede{color:var(--muted);max-width:66ch;margin-top:12px}
+.sec-head{display:flex;flex-direction:column;gap:8px}
+
+.pipeline{margin-top:28px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;counter-reset:s}
+.pipe{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:6px;counter-increment:s}
+.pipe::before{content:counter(s);font-family:var(--mono);font-size:12px;color:var(--blue);font-weight:600}
+.pipe h3{font-size:16px}
+.pipe p{font-size:14px;color:var(--muted);line-height:1.45}
+
+.results{margin-top:28px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{padding:10px 14px;text-align:right;border-top:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+thead th{border-top:none;color:var(--muted);font-weight:600;font-size:13px}
+tbody tr:last-child td{font-weight:700;color:var(--green)}
+
+.bugs{margin-top:28px;display:flex;flex-direction:column;gap:16px}
+.bug{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.bug .n{font-family:var(--mono);font-size:12px;color:var(--red);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.bug h3{margin-top:4px}
+.bug .observed{font-size:14.5px;color:var(--muted);margin-top:8px}
+.bug .fix{font-size:14.5px;margin-top:8px;border-left:3px solid var(--green);padding-left:12px}
+.bug.real .n{color:var(--purple)}
+
+.lessons{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.lesson{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.lesson .sym{font-family:var(--mono);font-size:12px;color:var(--blue);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
+.lesson p{font-size:15.5px}
+
+.foot{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 24px}
+
+@media (max-width:860px){
+  .stats{grid-template-columns:1fr 1fr}
+  .stat:nth-child(3){padding-left:0;border-left:0}
+  .stat:nth-child(n+3){border-top:1px solid var(--line)}
+  .pipeline{grid-template-columns:1fr}
+  .lessons{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Case study · System-1 decision models · Xiangqi</div>
+  <h1><span class="han">象棋</span>Chinese Chess Jev</h1>
+  <p class="thesis">Teaching a 0.6B-parameter <strong>System-1</strong> decision model — one that never generates text, only scores typed questions in a single forward pass — to play Chinese chess on a single 4GB consumer GPU. The honest answer is "somewhat, and here's exactly what it took."</p>
+  <div class="links">
+    <a class="btn primary" href="https://github.com/samguan2020/chinese-chess-jev" target="_blank" rel="noopener">Source on GitHub ↗</a>
+    <a class="btn" href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" target="_blank" rel="noopener">Jev / System-1 models ↗</a>
+    <a class="btn" href="https://github.com/TianyuCodings/NanoJev" target="_blank" rel="noopener">NanoJev ↗</a>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat"><b>0.6B</b><span>backbone (Qwen3), frozen — only a ~200K-param head is trained</span></div>
+  <div class="stat"><b>2.8GB</b><span>peak GPU memory, stable across every run on a 4GB card</span></div>
+  <div class="stat"><b>2.37 → 2.05</b><span>dev cross-entropy from v1 to v3, more data &gt; more steps</span></div>
+  <div class="stat"><b>0</b><span>human-labeled positions — Pikafish plays the teacher</span></div>
+</div>
+
+<section id="how">
+  <div class="sec-head">
+    <div class="eyebrow">How it works</div>
+    <h2>The model never generates a move</h2>
+  </div>
+  <p class="lede">A pure-Python rules engine enumerates every legal move. The model is asked exactly one <code>choice</code> question — pick the best move among these candidates — and returns a probability per option. No chain-of-thought, no illegal moves even representable.</p>
+  <div class="pipeline">
+    <div class="pipe"><h3>Rules engine</h3><p>Enumerates every legal move for the side to play; fully unit-tested, stdlib only.</p></div>
+    <div class="pipe"><h3>Code-side judgment</h3><p>Three small layers — repetition avoidance, material-trade weighting, hanging-piece defense — run before the model ever sees a candidate list.</p></div>
+    <div class="pipe"><h3>One forward pass</h3><p>The model scores the surviving candidates; the server applies the winner and checks for checkmate.</p></div>
+  </div>
+</section>
+
+<section id="training">
+  <div class="sec-head">
+    <div class="eyebrow">Training pipeline</div>
+    <h2>Pikafish as the teacher, no human labeling</h2>
+  </div>
+  <p class="lede">Self-play games sample positions; <a href="https://github.com/official-pikafish/Pikafish" target="_blank" rel="noopener">Pikafish</a> (a free, GPL-licensed UCI engine) labels the best move at each one. <code>--freeze-backbone</code> keeps the 600M backbone out of the optimizer entirely — full fine-tuning needs ~9.6GB of AdamW state, confirmed by watching it OOM on this card.</p>
+  <div class="results">
+    <table>
+      <thead><tr><th>Run</th><th>Labeled positions</th><th>Steps</th><th>Dev CE</th><th>Wall time</th></tr></thead>
+      <tbody>
+        <tr><td>Untrained baseline</td><td>—</td><td>0</td><td>~2.47–2.50</td><td>—</td></tr>
+        <tr><td>v1</td><td>1,200</td><td>150</td><td>2.374</td><td>~2.0h</td></tr>
+        <tr><td>v2</td><td>1,200</td><td>430</td><td>2.355</td><td>~1.7h</td></tr>
+        <tr><td>v3</td><td>6,000</td><td>2,040</td><td>2.053</td><td>~7.6h</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lede">The clearest finding: <strong style="color:var(--ink)">more labeled positions helped far more than more training steps on the same ones</strong> — v3's 5x larger dataset produced the biggest single jump, while v1→v2 shows the classic overfitting signature of a small fixed pool (the best checkpoint always came from before the final step).</p>
+</section>
+
+<section id="bugs">
+  <div class="sec-head">
+    <div class="eyebrow">Debugging a model with no lookahead</div>
+    <h2>Three failure modes, found in real games, in this order</h2>
+  </div>
+  <div class="bugs">
+    <div class="bug">
+      <div class="n">01 · Infinite piece-shuffling</div>
+      <h3>A Knight moved back and forth between the same two squares for several turns</h3>
+      <p class="observed">Undoing your own last move can look perfectly reasonable to a model with no memory of what it just did.</p>
+      <p class="fix"><strong>Fix:</strong> track the last 8 board positions and exclude any candidate that would recreate one — unless that leaves zero candidates, in which case the filter backs off rather than stalemate the AI by accident.</p>
+    </div>
+    <div class="bug">
+      <div class="n">02 · Giving away material in trades the model doesn't evaluate</div>
+      <h3>The AI traded its own Cannon for a Horse — a mild loss in real Xiangqi theory</h3>
+      <p class="observed">The model has no explicit notion of piece value; it picks the capture that looks appealing in isolation.</p>
+      <p class="fix"><strong>Fix:</strong> one ply of material-only lookahead. Any capture that nets a loss gets its probability multiplied by <code>0.02</code> before the argmax — never driven to exactly zero, so a bad trade can still be played if it's genuinely the only option.</p>
+    </div>
+    <div class="bug real">
+      <div class="n">03 · Leaving a piece hanging — the real bug</div>
+      <h3>A Cannon sat undefended for two full turns before the opponent simply took it</h3>
+      <p class="observed">The first fix (a threat-penalty, mirroring the material fix above) didn't work. The reason was more interesting than the bug it was chasing: <strong>the defending move was never in the model's candidate list to begin with.</strong> With 40+ legal moves in the opening and a 12-move cap for GPU-memory reasons, a reweighting scheme can only rescue a candidate that's actually offered.</p>
+      <p class="fix"><strong>Real fix:</strong> move the guarantee one layer earlier — <code>prune_moves()</code> now always includes any move that resolves a currently-hanging piece, with the same priority as a capture. Verified by replaying the exact position that exposed the bug, and by a regression test that runs the "does the fix survive random sampling" check 20 times in a row, since the original bug was a matter of odds, not a hard failure.</p>
+    </div>
+  </div>
+</section>
+
+<section id="lessons">
+  <div class="sec-head">
+    <div class="eyebrow">What this project is actually testing</div>
+    <h2>Code plans and enforces constraints; the model only makes narrow judgment calls</h2>
+  </div>
+  <div class="lessons">
+    <article class="lesson">
+      <div class="sym">Why a decision model, not a chat model</div>
+      <p>Jev-style "System-1" models answer typed questions (yes/no, choice, rating) with a calibrated probability in one forward pass — no generation, no hallucinated illegal moves, no chain-of-thought to go wrong.</p>
+    </article>
+    <article class="lesson">
+      <div class="sym">Why the Chinese text stays Chinese</div>
+      <p>The fine-tuned checkpoint was trained on Chinese board/move descriptions. Translating the model's input would silently shift it to a distribution it never trained on, on a checkpoint that already has very little data to spare. The UI translates for readability; the model's actual input doesn't change.</p>
+    </article>
+    <article class="lesson">
+      <div class="sym">Why the backbone stays frozen</div>
+      <p>The obvious tradeoff: the backbone's understanding of text never adapts to what Xiangqi descriptions look like, capping how much the small head can learn from any amount of data — but it's the only option that fits a 4GB card.</p>
+    </article>
+    <article class="lesson">
+      <div class="sym">What the GPU taught about trusting metrics</div>
+      <p><code>nvidia-smi</code>'s reported memory isn't the same as real risk — reserved memory crept toward 3.8GB while <code>torch.cuda.max_memory_allocated()</code>, the actual peak, stayed at 2.77GB the whole time. Per-question training cost also swung 3x depending on whether an idle inference server shared the card.</p>
+    </article>
+  </div>
+</section>
+
+<footer class="foot">
+  <span>Stack: Python · PyTorch · Transformers · Qwen3-0.6B · Pikafish (UCI) · vanilla HTML/CSS/JS frontend</span>
+  <span>Built on <a href="https://github.com/TianyuCodings/NanoJev" target="_blank" rel="noopener">NanoJev</a>, a replica of <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" target="_blank" rel="noopener">Jev</a> from typesafe.ai</span>
+</footer>
+
+</div>
+</body>
+</html>
